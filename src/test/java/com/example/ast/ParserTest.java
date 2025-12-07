@@ -2,14 +2,17 @@ package com.example.ast;
 
 import com.example.ast.nodes.*;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Comprehensive test suite for the Parser class.
- * Tests various scenarios including operator precedence, parentheses, and unary operators.
+ * Tests various scenarios using builders to construct expected AST nodes.
  */
 public class ParserTest {
 
@@ -20,509 +23,820 @@ public class ParserTest {
         parser = new Parser();
     }
 
-    // ==================== Simple Literals and Variables ====================
-
-    @Test
-    @DisplayName("Parse simple literal assignment")
-    public void testSimpleLiteral() {
-        Statement stmt = parser.parse("x = 5");
-
-        assertInstanceOf(Assignment.class, stmt);
-        Assignment assignment = (Assignment) stmt;
-
-        assertEquals("x", assignment.variable().name());
-        assertEquals(AssignmentType.ASSIGN, assignment.type());
-        assertInstanceOf(Literal.class, assignment.value());
-        assertEquals(5.0, ((Literal) assignment.value()).value());
+    /**
+     * Test case record containing expression string and expected AST node
+     */
+    public record TestCase(String expression, Statement expected) {
+        @Override
+        public String toString() {
+            return expression;
+        }
     }
 
-    @Test
-    @DisplayName("Parse simple variable assignment")
-    public void testSimpleVariable() {
-        Statement stmt = parser.parse("x = y");
+    /**
+     * Produces test cases for parser validation.
+     * Each test case contains an expression string and the expected AST node built using builders.
+     */
+    static Stream<TestCase> provideTestCases() {
+        return Stream.of(
+                // ==================== Simple Literals and Variables ====================
+                new TestCase(
+                        "x = 5",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(Literal.builder().value(5.0).build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x = y",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(Variable.builder().name("y").build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x = 3.14",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(Literal.builder().value(3.14).build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
 
-        Assignment assignment = (Assignment) stmt;
-        assertEquals("x", assignment.variable().name());
-        assertInstanceOf(Variable.class, assignment.value());
-        assertEquals("y", ((Variable) assignment.value()).name());
+                // ==================== Binary Operations - Addition/Subtraction ====================
+                new TestCase(
+                        "x = a + b",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(BinaryOperation.builder()
+                                        .left(Variable.builder().name("a").build())
+                                        .operator(BinaryOperator.ADD)
+                                        .right(Variable.builder().name("b").build())
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x = a - b",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(BinaryOperation.builder()
+                                        .left(Variable.builder().name("a").build())
+                                        .operator(BinaryOperator.SUBTRACT)
+                                        .right(Variable.builder().name("b").build())
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x = a + b + c",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(BinaryOperation.builder()
+                                        .left(BinaryOperation.builder()
+                                                .left(Variable.builder().name("a").build())
+                                                .operator(BinaryOperator.ADD)
+                                                .right(Variable.builder().name("b").build())
+                                                .build())
+                                        .operator(BinaryOperator.ADD)
+                                        .right(Variable.builder().name("c").build())
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+
+                // ==================== Binary Operations - Multiplication/Division ====================
+                new TestCase(
+                        "x = a * b",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(BinaryOperation.builder()
+                                        .left(Variable.builder().name("a").build())
+                                        .operator(BinaryOperator.MULTIPLY)
+                                        .right(Variable.builder().name("b").build())
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x = a / b",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(BinaryOperation.builder()
+                                        .left(Variable.builder().name("a").build())
+                                        .operator(BinaryOperator.DIVIDE)
+                                        .right(Variable.builder().name("b").build())
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x = a % b",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(BinaryOperation.builder()
+                                        .left(Variable.builder().name("a").build())
+                                        .operator(BinaryOperator.MODULO)
+                                        .right(Variable.builder().name("b").build())
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+
+                // ==================== Operator Precedence ====================
+                new TestCase(
+                        "x = a + b * c",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(BinaryOperation.builder()
+                                        .left(Variable.builder().name("a").build())
+                                        .operator(BinaryOperator.ADD)
+                                        .right(BinaryOperation.builder()
+                                                .left(Variable.builder().name("b").build())
+                                                .operator(BinaryOperator.MULTIPLY)
+                                                .right(Variable.builder().name("c").build())
+                                                .build())
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x = a - b / c",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(BinaryOperation.builder()
+                                        .left(Variable.builder().name("a").build())
+                                        .operator(BinaryOperator.SUBTRACT)
+                                        .right(BinaryOperation.builder()
+                                                .left(Variable.builder().name("b").build())
+                                                .operator(BinaryOperator.DIVIDE)
+                                                .right(Variable.builder().name("c").build())
+                                                .build())
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x = a * b + c / d - e % f",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(BinaryOperation.builder()
+                                        .left(BinaryOperation.builder()
+                                                .left(BinaryOperation.builder()
+                                                        .left(Variable.builder().name("a").build())
+                                                        .operator(BinaryOperator.MULTIPLY)
+                                                        .right(Variable.builder().name("b").build())
+                                                        .build())
+                                                .operator(BinaryOperator.ADD)
+                                                .right(BinaryOperation.builder()
+                                                        .left(Variable.builder().name("c").build())
+                                                        .operator(BinaryOperator.DIVIDE)
+                                                        .right(Variable.builder().name("d").build())
+                                                        .build())
+                                                .build())
+                                        .operator(BinaryOperator.SUBTRACT)
+                                        .right(BinaryOperation.builder()
+                                                .left(Variable.builder().name("e").build())
+                                                .operator(BinaryOperator.MODULO)
+                                                .right(Variable.builder().name("f").build())
+                                                .build())
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x = a - b + c",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(BinaryOperation.builder()
+                                        .left(BinaryOperation.builder()
+                                                .left(Variable.builder().name("a").build())
+                                                .operator(BinaryOperator.SUBTRACT)
+                                                .right(Variable.builder().name("b").build())
+                                                .build())
+                                        .operator(BinaryOperator.ADD)
+                                        .right(Variable.builder().name("c").build())
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+
+                // ==================== Parentheses ====================
+                new TestCase(
+                        "x = (a + b)",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(BinaryOperation.builder()
+                                        .left(Variable.builder().name("a").build())
+                                        .operator(BinaryOperator.ADD)
+                                        .right(Variable.builder().name("b").build())
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x = (a + b) * c",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(BinaryOperation.builder()
+                                        .left(BinaryOperation.builder()
+                                                .left(Variable.builder().name("a").build())
+                                                .operator(BinaryOperator.ADD)
+                                                .right(Variable.builder().name("b").build())
+                                                .build())
+                                        .operator(BinaryOperator.MULTIPLY)
+                                        .right(Variable.builder().name("c").build())
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x = ((a + b) * c)",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(BinaryOperation.builder()
+                                        .left(BinaryOperation.builder()
+                                                .left(Variable.builder().name("a").build())
+                                                .operator(BinaryOperator.ADD)
+                                                .right(Variable.builder().name("b").build())
+                                                .build())
+                                        .operator(BinaryOperator.MULTIPLY)
+                                        .right(Variable.builder().name("c").build())
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x = (a + b) * (c - d)",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(BinaryOperation.builder()
+                                        .left(BinaryOperation.builder()
+                                                .left(Variable.builder().name("a").build())
+                                                .operator(BinaryOperator.ADD)
+                                                .right(Variable.builder().name("b").build())
+                                                .build())
+                                        .operator(BinaryOperator.MULTIPLY)
+                                        .right(BinaryOperation.builder()
+                                                .left(Variable.builder().name("c").build())
+                                                .operator(BinaryOperator.SUBTRACT)
+                                                .right(Variable.builder().name("d").build())
+                                                .build())
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+
+                // ==================== Unary Operations ====================
+                new TestCase(
+                        "x = ++y",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(UnaryOperation.builder()
+                                        .operator(UnaryOperator.INCREMENT)
+                                        .operand(Variable.builder().name("y").build())
+                                        .isPrefix(true)
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x = y++",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(UnaryOperation.builder()
+                                        .operator(UnaryOperator.INCREMENT)
+                                        .operand(Variable.builder().name("y").build())
+                                        .isPrefix(false)
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x = --y",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(UnaryOperation.builder()
+                                        .operator(UnaryOperator.DECREMENT)
+                                        .operand(Variable.builder().name("y").build())
+                                        .isPrefix(true)
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x = y--",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(UnaryOperation.builder()
+                                        .operator(UnaryOperator.DECREMENT)
+                                        .operand(Variable.builder().name("y").build())
+                                        .isPrefix(false)
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+
+                // ==================== Unary with Binary Operations ====================
+                new TestCase(
+                        "x = ++a + b",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(BinaryOperation.builder()
+                                        .left(UnaryOperation.builder()
+                                                .operator(UnaryOperator.INCREMENT)
+                                                .operand(Variable.builder().name("a").build())
+                                                .isPrefix(true)
+                                                .build())
+                                        .operator(BinaryOperator.ADD)
+                                        .right(Variable.builder().name("b").build())
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x = a++ + b",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(BinaryOperation.builder()
+                                        .left(UnaryOperation.builder()
+                                                .operator(UnaryOperator.INCREMENT)
+                                                .operand(Variable.builder().name("a").build())
+                                                .isPrefix(false)
+                                                .build())
+                                        .operator(BinaryOperator.ADD)
+                                        .right(Variable.builder().name("b").build())
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x = a + ++b",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(BinaryOperation.builder()
+                                        .left(Variable.builder().name("a").build())
+                                        .operator(BinaryOperator.ADD)
+                                        .right(UnaryOperation.builder()
+                                                .operator(UnaryOperator.INCREMENT)
+                                                .operand(Variable.builder().name("b").build())
+                                                .isPrefix(true)
+                                                .build())
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x = ++a * b",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(BinaryOperation.builder()
+                                        .left(UnaryOperation.builder()
+                                                .operator(UnaryOperator.INCREMENT)
+                                                .operand(Variable.builder().name("a").build())
+                                                .isPrefix(true)
+                                                .build())
+                                        .operator(BinaryOperator.MULTIPLY)
+                                        .right(Variable.builder().name("b").build())
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+
+                // ==================== Complex Mixed Expressions ====================
+                new TestCase(
+                        "x = (++a + b) * c - d++",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(BinaryOperation.builder()
+                                        .left(BinaryOperation.builder()
+                                                .left(BinaryOperation.builder()
+                                                        .left(UnaryOperation.builder()
+                                                                .operator(UnaryOperator.INCREMENT)
+                                                                .operand(Variable.builder().name("a").build())
+                                                                .isPrefix(true)
+                                                                .build())
+                                                        .operator(BinaryOperator.ADD)
+                                                        .right(Variable.builder().name("b").build())
+                                                        .build())
+                                                .operator(BinaryOperator.MULTIPLY)
+                                                .right(Variable.builder().name("c").build())
+                                                .build())
+                                        .operator(BinaryOperator.SUBTRACT)
+                                        .right(UnaryOperation.builder()
+                                                .operator(UnaryOperator.INCREMENT)
+                                                .operand(Variable.builder().name("d").build())
+                                                .isPrefix(false)
+                                                .build())
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x = ((a + (b * c)) - d)",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(BinaryOperation.builder()
+                                        .left(BinaryOperation.builder()
+                                                .left(Variable.builder().name("a").build())
+                                                .operator(BinaryOperator.ADD)
+                                                .right(BinaryOperation.builder()
+                                                        .left(Variable.builder().name("b").build())
+                                                        .operator(BinaryOperator.MULTIPLY)
+                                                        .right(Variable.builder().name("c").build())
+                                                        .build())
+                                                .build())
+                                        .operator(BinaryOperator.SUBTRACT)
+                                        .right(Variable.builder().name("d").build())
+                                        .build())
+                                .type(AssignmentType.ASSIGN)
+                                .build()
+                ),
+
+                // ==================== Assignment Types ====================
+                new TestCase(
+                        "x += 5",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(Literal.builder().value(5.0).build())
+                                .type(AssignmentType.ADD_ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x -= 5",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(Literal.builder().value(5.0).build())
+                                .type(AssignmentType.SUBTRACT_ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x *= 5",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(Literal.builder().value(5.0).build())
+                                .type(AssignmentType.MULTIPLY_ASSIGN)
+                                .build()
+                ),
+                new TestCase(
+                        "x /= 5",
+                        Assignment.builder()
+                                .variable(Variable.builder().name("x").build())
+                                .value(Literal.builder().value(5.0).build())
+                                .type(AssignmentType.DIVIDE_ASSIGN)
+                                .build()
+                )
+        );
     }
 
-    @Test
-    @DisplayName("Parse floating point literal")
-    public void testFloatingPointLiteral() {
-        Statement stmt = parser.parse("x = 3.14");
-
-        Assignment assignment = (Assignment) stmt;
-        assertInstanceOf(Literal.class, assignment.value());
-        assertEquals(3.14, ((Literal) assignment.value()).value());
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("provideTestCases")
+    @DisplayName("Parse expression and compare to expected AST")
+    public void testParseExpression(TestCase testCase) {
+        System.out.println("Testing expression: " + testCase.expression);
+        System.out.flush();
+        Statement actual = parser.parse(testCase.expression);
+        Assignment actualAssignment = (Assignment) actual;
+        System.out.println("Parsed result: " + actualAssignment.value().toString());
+        System.out.flush();
+        System.err.println("Testing expression: " + testCase.expression);
+        System.err.println("Parsed result: " + actualAssignment.value());
+        System.err.flush();
+        assertStatementsEqual(testCase.expected, actual);
     }
 
-    // ==================== Binary Operations - Addition/Subtraction ====================
+    /**
+     * Recursively compares two statements for equality
+     */
+    private void assertStatementsEqual(Statement expected, Statement actual) {
+        assertInstanceOf(Assignment.class, actual, "Expected Assignment statement");
+        Assignment expectedAssignment = (Assignment) expected;
+        Assignment actualAssignment = (Assignment) actual;
 
-    @Test
-    @DisplayName("Parse simple addition")
-    public void testSimpleAddition() {
-        Statement stmt = parser.parse("x = a + b");
-
-        Assignment assignment = (Assignment) stmt;
-        assertInstanceOf(BinaryOperation.class, assignment.value());
-
-        BinaryOperation binOp = (BinaryOperation) assignment.value();
-        assertEquals(BinaryOperator.ADD, binOp.operator());
-        assertEquals("a", ((Variable) binOp.left()).name());
-        assertEquals("b", ((Variable) binOp.right()).name());
+        assertEquals(expectedAssignment.variable().name(), actualAssignment.variable().name(),
+                "Variable names should match");
+        assertEquals(expectedAssignment.type(), actualAssignment.type(),
+                "Assignment types should match");
+        assertExpressionsEqual(expectedAssignment.value(), actualAssignment.value());
     }
 
-    @Test
-    @DisplayName("Parse simple subtraction")
-    public void testSimpleSubtraction() {
-        Statement stmt = parser.parse("x = a - b");
-
-        Assignment assignment = (Assignment) stmt;
-        BinaryOperation binOp = (BinaryOperation) assignment.value();
-
-        assertEquals(BinaryOperator.SUBTRACT, binOp.operator());
-        assertEquals("a", ((Variable) binOp.left()).name());
-        assertEquals("b", ((Variable) binOp.right()).name());
+    /**
+     * Recursively compares two expressions for equality
+     */
+    private void assertExpressionsEqual(Expression expected, Expression actual) {
+        switch (expected) {
+            case Literal expectedLiteral -> {
+                assertInstanceOf(Literal.class, actual, "Expected Literal");
+                Literal actualLiteral = (Literal) actual;
+                assertEquals(expectedLiteral.value(), actualLiteral.value(),
+                        "Literal values should match");
+            }
+            case Variable expectedVar -> {
+                assertInstanceOf(Variable.class, actual, "Expected Variable");
+                Variable actualVar = (Variable) actual;
+                assertEquals(expectedVar.name(), actualVar.name(),
+                        "Variable names should match");
+            }
+            case BinaryOperation expectedBinOp -> {
+                assertInstanceOf(BinaryOperation.class, actual, "Expected BinaryOperation");
+                BinaryOperation actualBinOp = (BinaryOperation) actual;
+                assertEquals(expectedBinOp.operator(), actualBinOp.operator(),
+                        "Binary operators should match");
+                assertExpressionsEqual(expectedBinOp.left(), actualBinOp.left());
+                assertExpressionsEqual(expectedBinOp.right(), actualBinOp.right());
+            }
+            case UnaryOperation expectedUnaryOp -> {
+                assertInstanceOf(UnaryOperation.class, actual, "Expected UnaryOperation");
+                UnaryOperation actualUnaryOp = (UnaryOperation) actual;
+                assertEquals(expectedUnaryOp.operator(), actualUnaryOp.operator(),
+                        "Unary operators should match");
+                assertEquals(expectedUnaryOp.isPrefix(), actualUnaryOp.isPrefix(),
+                        "Unary operation prefix/postfix should match");
+                assertEquals(expectedUnaryOp.operand().name(), actualUnaryOp.operand().name(),
+                        "Unary operation operand names should match");
+            }
+            default -> fail("Unexpected expression type: " + expected.getClass().getSimpleName());
+        }
     }
 
-    @Test
-    @DisplayName("Parse chained addition (left associative)")
-    public void testChainedAddition() {
-        Statement stmt = parser.parse("x = a + b + c");
+    // ==================== Negative Test Cases ====================
 
-        Assignment assignment = (Assignment) stmt;
-        BinaryOperation binOp = (BinaryOperation) assignment.value();
-
-        // Should be parsed as (a + b) + c
-        assertEquals(BinaryOperator.ADD, binOp.operator());
-        assertInstanceOf(BinaryOperation.class, binOp.right());
-        assertEquals("a", ((Variable) binOp.left()).name());
-
-        BinaryOperation rightOp = (BinaryOperation) binOp.right();
-        assertEquals(BinaryOperator.ADD, rightOp.operator());
-        assertEquals("b", ((Variable) rightOp.left()).name());
-        assertEquals("c", ((Variable) rightOp.right()).name());
+    /**
+     * Test case for invalid expressions that should throw exceptions
+     */
+    public record NegativeTestCase(String expression, Class<? extends Exception> expectedException, String description) {
+        @Override
+        public String toString() {
+            return description;
+        }
     }
 
-    // ==================== Binary Operations - Multiplication/Division ====================
+    /**
+     * Provides negative test cases for parser validation
+     */
+    static Stream<NegativeTestCase> provideNegativeTestCases() {
+        return Stream.of(
+                // ==================== Invalid Syntax ====================
+                new NegativeTestCase(
+                        "",
+                        IllegalArgumentException.class,
+                        "Empty string"
+                ),
+                new NegativeTestCase(
+                        "   ",
+                        IllegalArgumentException.class,
+                        "Whitespace only"
+                ),
+                new NegativeTestCase(
+                        "x",
+                        IllegalArgumentException.class,
+                        "Missing assignment operator"
+                ),
+                new NegativeTestCase(
+                        "= 5",
+                        IllegalArgumentException.class,
+                        "Missing variable name"
+                ),
+                new NegativeTestCase(
+                        "x =",
+                        IllegalArgumentException.class,
+                        "Missing right-hand side"
+                ),
+                new NegativeTestCase(
+                        "x = ",
+                        IllegalArgumentException.class,
+                        "Missing expression (whitespace only)"
+                ),
+                // Note: "5 = x" is not caught by parser regex - would require semantic validation
 
-    @Test
-    @DisplayName("Parse simple multiplication")
-    public void testSimpleMultiplication() {
-        Statement stmt = parser.parse("x = a * b");
+                // ==================== Incomplete Expressions ====================
+                new NegativeTestCase(
+                        "x = +",
+                        IllegalArgumentException.class,
+                        "Operator without operands"
+                ),
+                new NegativeTestCase(
+                        "x = 5 +",
+                        IllegalArgumentException.class,
+                        "Missing right operand"
+                ),
+                new NegativeTestCase(
+                        "x = + 5",
+                        IllegalArgumentException.class,
+                        "Missing left operand"
+                ),
+                new NegativeTestCase(
+                        "x = 5 + + 3",
+                        IllegalArgumentException.class,
+                        "Consecutive operators"
+                ),
+                new NegativeTestCase(
+                        "x = * 5",
+                        IllegalArgumentException.class,
+                        "Operator at start of expression"
+                ),
+                new NegativeTestCase(
+                        "x = 5 * * 3",
+                        IllegalArgumentException.class,
+                        "Double multiplication operator"
+                ),
 
-        Assignment assignment = (Assignment) stmt;
-        BinaryOperation binOp = (BinaryOperation) assignment.value();
+                // ==================== Unmatched Parentheses ====================
+                new NegativeTestCase(
+                        "x = (5 + 3",
+                        IllegalArgumentException.class,
+                        "Unmatched opening parenthesis"
+                ),
+                new NegativeTestCase(
+                        "x = 5 + 3)",
+                        IllegalArgumentException.class,
+                        "Unmatched closing parenthesis"
+                ),
+                new NegativeTestCase(
+                        "x = ((5 + 3)",
+                        IllegalArgumentException.class,
+                        "Multiple unmatched opening parentheses"
+                ),
+                new NegativeTestCase(
+                        "x = (5 + 3))",
+                        IllegalArgumentException.class,
+                        "Multiple unmatched closing parentheses"
+                ),
+                new NegativeTestCase(
+                        "x = ()",
+                        IllegalArgumentException.class,
+                        "Empty parentheses"
+                ),
 
-        assertEquals(BinaryOperator.MULTIPLY, binOp.operator());
-        assertEquals("a", ((Variable) binOp.left()).name());
-        assertEquals("b", ((Variable) binOp.right()).name());
+                // ==================== Invalid Variable Names ====================
+                // Note: "123 = 5" is not caught by parser regex - would require semantic validation
+                new NegativeTestCase(
+                        "x-y = 5",
+                        IllegalArgumentException.class,
+                        "Variable name with hyphen"
+                ),
+                new NegativeTestCase(
+                        "x.y = 5",
+                        IllegalArgumentException.class,
+                        "Variable name with dot"
+                ),
+                new NegativeTestCase(
+                        "x y = 5",
+                        IllegalArgumentException.class,
+                        "Variable name with space"
+                ),
+
+                // ==================== Invalid Literals ====================
+                new NegativeTestCase(
+                        "x = 5.3.2",
+                        IllegalArgumentException.class,
+                        "Invalid number format (multiple dots)"
+                ),
+                new NegativeTestCase(
+                        "x = 5a",
+                        IllegalArgumentException.class,
+                        "Invalid number format (letter suffix)"
+                ),
+
+                // ==================== Invalid Unary Operations ====================
+                new NegativeTestCase(
+                        "x = ++",
+                        IllegalArgumentException.class,
+                        "Increment operator without operand"
+                ),
+                new NegativeTestCase(
+                        "x = --",
+                        IllegalArgumentException.class,
+                        "Decrement operator without operand"
+                ),
+                new NegativeTestCase(
+                        "x = ++5",
+                        IllegalArgumentException.class,
+                        "Increment on literal"
+                ),
+                new NegativeTestCase(
+                        "x = 5++",
+                        IllegalArgumentException.class,
+                        "Postfix increment on literal"
+                ),
+                new NegativeTestCase(
+                        "x = ++++y",
+                        IllegalArgumentException.class,
+                        "Multiple consecutive increment operators"
+                ),
+
+                // ==================== Invalid Assignment Operators ====================
+                new NegativeTestCase(
+                        "x == 5",
+                        IllegalArgumentException.class,
+                        "Comparison operator instead of assignment"
+                ),
+                new NegativeTestCase(
+                        "x := 5",
+                        IllegalArgumentException.class,
+                        "Invalid assignment operator"
+                ),
+                new NegativeTestCase(
+                        "x =+ 5",
+                        IllegalArgumentException.class,
+                        "Reversed compound assignment operator"
+                ),
+
+                // ==================== Multiple Statements ====================
+                new NegativeTestCase(
+                        "x = 5; y = 10",
+                        IllegalArgumentException.class,
+                        "Multiple statements separated by semicolon"
+                ),
+                new NegativeTestCase(
+                        "x = 5\ny = 10",
+                        IllegalArgumentException.class,
+                        "Multiple statements on separate lines"
+                ),
+
+                // ==================== Special Characters ====================
+                new NegativeTestCase(
+                        "x = 5 & 3",
+                        IllegalArgumentException.class,
+                        "Unsupported operator &"
+                ),
+                new NegativeTestCase(
+                        "x = 5 | 3",
+                        IllegalArgumentException.class,
+                        "Unsupported operator |"
+                ),
+                new NegativeTestCase(
+                        "x = 5 ^ 3",
+                        IllegalArgumentException.class,
+                        "Unsupported operator ^"
+                ),
+                new NegativeTestCase(
+                        "x = 5 < 3",
+                        IllegalArgumentException.class,
+                        "Unsupported comparison operator <"
+                ),
+                new NegativeTestCase(
+                        "x = 5 > 3",
+                        IllegalArgumentException.class,
+                        "Unsupported comparison operator >"
+                ),
+                new NegativeTestCase(
+                        "x = !y",
+                        IllegalArgumentException.class,
+                        "Unsupported logical NOT operator"
+                ),
+                new NegativeTestCase(
+                        "x = ~y",
+                        IllegalArgumentException.class,
+                        "Unsupported bitwise NOT operator"
+                ),
+
+                // ==================== Edge Cases ====================
+                new NegativeTestCase(
+                        "x = y =",
+                        IllegalArgumentException.class,
+                        "Chained assignment with missing value"
+                ),
+                new NegativeTestCase(
+                        "x = (a + b",
+                        IllegalArgumentException.class,
+                        "Missing closing parenthesis with expression"
+                ),
+                new NegativeTestCase(
+                        "x = a + (b * c",
+                        IllegalArgumentException.class,
+                        "Nested parentheses missing closing"
+                ),
+                new NegativeTestCase(
+                        "x = / 5",
+                        IllegalArgumentException.class,
+                        "Division operator at start"
+                ),
+                new NegativeTestCase(
+                        "x = 5 /",
+                        IllegalArgumentException.class,
+                        "Division operator at end"
+                ),
+                new NegativeTestCase(
+                        "x = % 5",
+                        IllegalArgumentException.class,
+                        "Modulo operator at start"
+                )
+        );
     }
 
-    @Test
-    @DisplayName("Parse simple division")
-    public void testSimpleDivision() {
-        Statement stmt = parser.parse("x = a / b");
-
-        Assignment assignment = (Assignment) stmt;
-        BinaryOperation binOp = (BinaryOperation) assignment.value();
-
-        assertEquals(BinaryOperator.DIVIDE, binOp.operator());
-        assertEquals("a", ((Variable) binOp.left()).name());
-        assertEquals("b", ((Variable) binOp.right()).name());
-    }
-
-    @Test
-    @DisplayName("Parse modulo operation")
-    public void testModulo() {
-        Statement stmt = parser.parse("x = a % b");
-
-        Assignment assignment = (Assignment) stmt;
-        BinaryOperation binOp = (BinaryOperation) assignment.value();
-
-        assertEquals(BinaryOperator.MODULO, binOp.operator());
-        assertEquals("a", ((Variable) binOp.left()).name());
-        assertEquals("b", ((Variable) binOp.right()).name());
-    }
-
-    // ==================== Operator Precedence ====================
-
-    @Test
-    @DisplayName("Parse multiplication before addition")
-    public void testMultiplicationBeforeAddition() {
-        Statement stmt = parser.parse("x = a + b * c");
-
-        Assignment assignment = (Assignment) stmt;
-        BinaryOperation binOp = (BinaryOperation) assignment.value();
-
-        // Should be parsed as a + (b * c)
-        assertEquals(BinaryOperator.ADD, binOp.operator());
-        assertEquals("a", ((Variable) binOp.left()).name());
-
-        BinaryOperation rightOp = (BinaryOperation) binOp.right();
-        assertEquals(BinaryOperator.MULTIPLY, rightOp.operator());
-        assertEquals("b", ((Variable) rightOp.left()).name());
-        assertEquals("c", ((Variable) rightOp.right()).name());
-    }
-
-    @Test
-    @DisplayName("Parse division before subtraction")
-    public void testDivisionBeforeSubtraction() {
-        Statement stmt = parser.parse("x = a - b / c");
-
-        Assignment assignment = (Assignment) stmt;
-        BinaryOperation binOp = (BinaryOperation) assignment.value();
-
-        // Should be parsed as a - (b / c)
-        assertEquals(BinaryOperator.SUBTRACT, binOp.operator());
-        assertEquals("a", ((Variable) binOp.left()).name());
-
-        BinaryOperation rightOp = (BinaryOperation) binOp.right();
-        assertEquals(BinaryOperator.DIVIDE, rightOp.operator());
-        assertEquals("b", ((Variable) rightOp.left()).name());
-        assertEquals("c", ((Variable) rightOp.right()).name());
-    }
-
-    @Test
-    @DisplayName("Parse complex precedence: a * b + c / d - e % f")
-    public void testComplexPrecedence() {
-        Statement stmt = parser.parse("x = a * b + c / d - e % f");
-
-        Assignment assignment = (Assignment) stmt;
-        BinaryOperation binOp = (BinaryOperation) assignment.value();
-
-        // Should be parsed as (a * b + c / d) - (e % f)
-        assertEquals(BinaryOperator.SUBTRACT, binOp.operator());
-
-        // Left side: a * b + c / d
-        BinaryOperation leftAdd = (BinaryOperation) binOp.left();
-        assertEquals(BinaryOperator.ADD, leftAdd.operator());
-
-        BinaryOperation mult = (BinaryOperation) leftAdd.left();
-        assertEquals(BinaryOperator.MULTIPLY, mult.operator());
-        assertEquals("a", ((Variable) mult.left()).name());
-        assertEquals("b", ((Variable) mult.right()).name());
-
-        BinaryOperation div = (BinaryOperation) leftAdd.right();
-        assertEquals(BinaryOperator.DIVIDE, div.operator());
-        assertEquals("c", ((Variable) div.left()).name());
-        assertEquals("d", ((Variable) div.right()).name());
-
-        // Right: e % f
-        BinaryOperation mod = (BinaryOperation) binOp.right();
-        assertEquals(BinaryOperator.MODULO, mod.operator());
-        assertEquals("e", ((Variable) mod.left()).name());
-        assertEquals("f", ((Variable) mod.right()).name());
-    }
-
-    @Test
-    @DisplayName("Parse complex: a - b + c")
-    public void testComplexMixed2() {
-        Statement stmt = parser.parse("x = a - b + c");
-
-        Assignment assignment = (Assignment) stmt;
-        BinaryOperation binOp = (BinaryOperation) assignment.value();
-
-        // Should be parsed as a - (b + c)
-        assertEquals(BinaryOperator.SUBTRACT, binOp.operator());
-        assertEquals("a", ((Variable) binOp.left()).name());
-
-        // Right: b + c
-        BinaryOperation rightAdd = (BinaryOperation) binOp.right();
-        assertEquals(BinaryOperator.ADD, rightAdd.operator());
-        assertEquals("b", ((Variable) rightAdd.left()).name());
-        assertEquals("c", ((Variable) rightAdd.right()).name());
-    }
-
-    // ==================== Parentheses ====================
-
-    @Test
-    @DisplayName("Parse simple parentheses")
-    public void testSimpleParentheses() {
-        Statement stmt = parser.parse("x = (a + b)");
-
-        Assignment assignment = (Assignment) stmt;
-        BinaryOperation binOp = (BinaryOperation) assignment.value();
-
-        assertEquals(BinaryOperator.ADD, binOp.operator());
-        assertEquals("a", ((Variable) binOp.left()).name());
-        assertEquals("b", ((Variable) binOp.right()).name());
-    }
-
-    @Test
-    @DisplayName("Parse parentheses overriding precedence")
-    public void testParenthesesOverridePrecedence() {
-        Statement stmt = parser.parse("x = (a + b) * c");
-
-        Assignment assignment = (Assignment) stmt;
-        BinaryOperation binOp = (BinaryOperation) assignment.value();
-
-        // Should be parsed as (a + b) * c
-        assertEquals(BinaryOperator.MULTIPLY, binOp.operator());
-        assertEquals("c", ((Variable) binOp.right()).name());
-
-        BinaryOperation leftOp = (BinaryOperation) binOp.left();
-        assertEquals(BinaryOperator.ADD, leftOp.operator());
-        assertEquals("a", ((Variable) leftOp.left()).name());
-        assertEquals("b", ((Variable) leftOp.right()).name());
-    }
-
-    @Test
-    @DisplayName("Parse nested parentheses")
-    public void testNestedParentheses() {
-        Statement stmt = parser.parse("x = ((a + b) * c)");
-
-        Assignment assignment = (Assignment) stmt;
-        BinaryOperation binOp = (BinaryOperation) assignment.value();
-
-        assertEquals(BinaryOperator.MULTIPLY, binOp.operator());
-        assertEquals("c", ((Variable) binOp.right()).name());
-
-        BinaryOperation leftOp = (BinaryOperation) binOp.left();
-        assertEquals(BinaryOperator.ADD, leftOp.operator());
-        assertEquals("a", ((Variable) leftOp.left()).name());
-        assertEquals("b", ((Variable) leftOp.right()).name());
-    }
-
-    @Test
-    @DisplayName("Parse complex parentheses: (a + b) * (c - d)")
-    public void testComplexParentheses() {
-        Statement stmt = parser.parse("x = (a + b) * (c - d)");
-
-        Assignment assignment = (Assignment) stmt;
-        BinaryOperation binOp = (BinaryOperation) assignment.value();
-
-        assertEquals(BinaryOperator.MULTIPLY, binOp.operator());
-
-        BinaryOperation leftOp = (BinaryOperation) binOp.left();
-        assertEquals(BinaryOperator.ADD, leftOp.operator());
-        assertEquals("a", ((Variable) leftOp.left()).name());
-        assertEquals("b", ((Variable) leftOp.right()).name());
-
-        BinaryOperation rightOp = (BinaryOperation) binOp.right();
-        assertEquals(BinaryOperator.SUBTRACT, rightOp.operator());
-        assertEquals("c", ((Variable) rightOp.left()).name());
-        assertEquals("d", ((Variable) rightOp.right()).name());
-    }
-
-    // ==================== Unary Operations ====================
-
-    @Test
-    @DisplayName("Parse prefix increment")
-    public void testPrefixIncrement() {
-        Statement stmt = parser.parse("x = ++y");
-
-        Assignment assignment = (Assignment) stmt;
-        assertInstanceOf(UnaryOperation.class, assignment.value());
-
-        UnaryOperation unaryOp = (UnaryOperation) assignment.value();
-        assertEquals(UnaryOperator.INCREMENT, unaryOp.operator());
-        assertEquals("y", unaryOp.operand().name());
-        assertTrue(unaryOp.isPrefix());
-    }
-
-    @Test
-    @DisplayName("Parse postfix increment")
-    public void testPostfixIncrement() {
-        Statement stmt = parser.parse("x = y++");
-
-        Assignment assignment = (Assignment) stmt;
-        UnaryOperation unaryOp = (UnaryOperation) assignment.value();
-
-        assertEquals(UnaryOperator.INCREMENT, unaryOp.operator());
-        assertEquals("y", unaryOp.operand().name());
-        assertFalse(unaryOp.isPrefix());
-    }
-
-    @Test
-    @DisplayName("Parse prefix decrement")
-    public void testPrefixDecrement() {
-        Statement stmt = parser.parse("x = --y");
-
-        Assignment assignment = (Assignment) stmt;
-        UnaryOperation unaryOp = (UnaryOperation) assignment.value();
-
-        assertEquals(UnaryOperator.DECREMENT, unaryOp.operator());
-        assertEquals("y", unaryOp.operand().name());
-        assertTrue(unaryOp.isPrefix());
-    }
-
-    @Test
-    @DisplayName("Parse postfix decrement")
-    public void testPostfixDecrement() {
-        Statement stmt = parser.parse("x = y--");
-
-        Assignment assignment = (Assignment) stmt;
-        UnaryOperation unaryOp = (UnaryOperation) assignment.value();
-
-        assertEquals(UnaryOperator.DECREMENT, unaryOp.operator());
-        assertEquals("y", unaryOp.operand().name());
-        assertFalse(unaryOp.isPrefix());
-    }
-
-    // ==================== Unary with Binary Operations ====================
-
-    @Test
-    @DisplayName("Parse unary with addition: ++a + b")
-    public void testUnaryWithAddition() {
-        Statement stmt = parser.parse("x = ++a + b");
-
-        Assignment assignment = (Assignment) stmt;
-        BinaryOperation binOp = (BinaryOperation) assignment.value();
-
-        assertEquals(BinaryOperator.ADD, binOp.operator());
-
-        UnaryOperation leftOp = (UnaryOperation) binOp.left();
-        assertEquals(UnaryOperator.INCREMENT, leftOp.operator());
-        assertEquals("a", leftOp.operand().name());
-        assertTrue(leftOp.isPrefix());
-
-        assertEquals("b", ((Variable) binOp.right()).name());
-    }
-
-    @Test
-    @DisplayName("Parse postfix unary with addition: a++ + b")
-    public void testPostfixUnaryWithAddition() {
-        Statement stmt = parser.parse("x = a++ + b");
-
-        Assignment assignment = (Assignment) stmt;
-        BinaryOperation binOp = (BinaryOperation) assignment.value();
-
-        assertEquals(BinaryOperator.ADD, binOp.operator());
-
-        UnaryOperation leftOp = (UnaryOperation) binOp.left();
-        assertEquals(UnaryOperator.INCREMENT, leftOp.operator());
-        assertEquals("a", leftOp.operand().name());
-        assertFalse(leftOp.isPrefix());
-
-        assertEquals("b", ((Variable) binOp.right()).name());
-    }
-
-    @Test
-    @DisplayName("Parse binary with unary on right: a + ++b")
-    public void testBinaryWithUnaryRight() {
-        Statement stmt = parser.parse("x = a + ++b");
-
-        Assignment assignment = (Assignment) stmt;
-        BinaryOperation binOp = (BinaryOperation) assignment.value();
-
-        assertEquals(BinaryOperator.ADD, binOp.operator());
-        assertEquals("a", ((Variable) binOp.left()).name());
-
-        UnaryOperation rightOp = (UnaryOperation) binOp.right();
-        assertEquals(UnaryOperator.INCREMENT, rightOp.operator());
-        assertEquals("b", rightOp.operand().name());
-        assertTrue(rightOp.isPrefix());
-    }
-
-    @Test
-    @DisplayName("Parse unary with multiplication: ++a * b")
-    public void testUnaryWithMultiplication() {
-        Statement stmt = parser.parse("x = ++a * b");
-
-        Assignment assignment = (Assignment) stmt;
-        BinaryOperation binOp = (BinaryOperation) assignment.value();
-
-        assertEquals(BinaryOperator.MULTIPLY, binOp.operator());
-
-        UnaryOperation leftOp = (UnaryOperation) binOp.left();
-        assertEquals(UnaryOperator.INCREMENT, leftOp.operator());
-        assertEquals("a", leftOp.operand().name());
-    }
-
-    // ==================== Complex Mixed Expressions ====================
-
-    @Test
-    @DisplayName("Parse complex: (++a + b) * c - d++")
-    public void testComplexMixed1() {
-        Statement stmt = parser.parse("x = (++a + b) * c - d++");
-
-        Assignment assignment = (Assignment) stmt;
-        BinaryOperation binOp = (BinaryOperation) assignment.value();
-
-        // Top level: ... - d++
-        assertEquals(BinaryOperator.SUBTRACT, binOp.operator());
-
-        UnaryOperation rightUnary = (UnaryOperation) binOp.right();
-        assertEquals(UnaryOperator.INCREMENT, rightUnary.operator());
-        assertEquals("d", rightUnary.operand().name());
-        assertFalse(rightUnary.isPrefix());
-
-        // Left: (++a + b) * c
-        BinaryOperation leftMult = (BinaryOperation) binOp.left();
-        assertEquals(BinaryOperator.MULTIPLY, leftMult.operator());
-        assertEquals("c", ((Variable) leftMult.right()).name());
-
-        // Inner: ++a + b
-        BinaryOperation innerAdd = (BinaryOperation) leftMult.left();
-        assertEquals(BinaryOperator.ADD, innerAdd.operator());
-
-        UnaryOperation prefixUnary = (UnaryOperation) innerAdd.left();
-        assertEquals(UnaryOperator.INCREMENT, prefixUnary.operator());
-        assertEquals("a", prefixUnary.operand().name());
-        assertTrue(prefixUnary.isPrefix());
-
-        assertEquals("b", ((Variable) innerAdd.right()).name());
-    }
-
-    @Test
-    @DisplayName("Parse deeply nested parentheses: ((a + (b * c)) - d)")
-    public void testDeeplyNestedParentheses() {
-        Statement stmt = parser.parse("x = ((a + (b * c)) - d)");
-
-        Assignment assignment = (Assignment) stmt;
-        BinaryOperation binOp = (BinaryOperation) assignment.value();
-
-        assertEquals(BinaryOperator.SUBTRACT, binOp.operator());
-        assertEquals("d", ((Variable) binOp.right()).name());
-
-        BinaryOperation leftAdd = (BinaryOperation) binOp.left();
-        assertEquals(BinaryOperator.ADD, leftAdd.operator());
-        assertEquals("a", ((Variable) leftAdd.left()).name());
-
-        BinaryOperation mult = (BinaryOperation) leftAdd.right();
-        assertEquals(BinaryOperator.MULTIPLY, mult.operator());
-        assertEquals("b", ((Variable) mult.left()).name());
-        assertEquals("c", ((Variable) mult.right()).name());
-    }
-
-    // ==================== Assignment Types ====================
-
-    @Test
-    @DisplayName("Parse add-assign")
-    public void testAddAssign() {
-        Statement stmt = parser.parse("x += 5");
-
-        Assignment assignment = (Assignment) stmt;
-        assertEquals(AssignmentType.ADD_ASSIGN, assignment.type());
-        assertEquals(5.0, ((Literal) assignment.value()).value());
-    }
-
-    @Test
-    @DisplayName("Parse subtract-assign")
-    public void testSubtractAssign() {
-        Statement stmt = parser.parse("x -= 5");
-
-        Assignment assignment = (Assignment) stmt;
-        assertEquals(AssignmentType.SUBTRACT_ASSIGN, assignment.type());
-    }
-
-    @Test
-    @DisplayName("Parse multiply-assign")
-    public void testMultiplyAssign() {
-        Statement stmt = parser.parse("x *= 5");
-
-        Assignment assignment = (Assignment) stmt;
-        assertEquals(AssignmentType.MULTIPLY_ASSIGN, assignment.type());
-    }
-
-    @Test
-    @DisplayName("Parse divide-assign")
-    public void testDivideAssign() {
-        Statement stmt = parser.parse("x /= 5");
-
-        Assignment assignment = (Assignment) stmt;
-        assertEquals(AssignmentType.DIVIDE_ASSIGN, assignment.type());
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("provideNegativeTestCases")
+    @DisplayName("Parse invalid expression and expect exception")
+    public void testParseInvalidExpression(NegativeTestCase testCase) {
+        Exception exception = assertThrows(
+                testCase.expectedException,
+                () -> parser.parse(testCase.expression), "Expected " + testCase.expectedException.getSimpleName() + " for: " + testCase.description);
+
+        // Optionally verify the exception message contains useful information
+        assertNotNull(exception.getMessage(), "Exception should have a message");
+        assertFalse(exception.getMessage().isEmpty(), "Exception message should not be empty");
     }
 }

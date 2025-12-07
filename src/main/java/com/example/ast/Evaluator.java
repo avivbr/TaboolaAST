@@ -21,13 +21,6 @@ public class Evaluator implements ASTVisitor<Double> {
         statement.accept(this);
     }
 
-    /**
-     * Evaluate an expression to a numeric value
-     */
-    public double evaluate(Expression expression) {
-        return expression.accept(this);
-    }
-
     @Override
     public Double visitVariable(Variable variable) {
         return heap.get(variable.name())
@@ -55,7 +48,6 @@ public class Evaluator implements ASTVisitor<Double> {
                 yield left / right;
             }
             case MODULO -> left % right;
-            default -> throw new UnsupportedOperationException("Unsupported binary operator: " + operation.operator());
         };
     }
 
@@ -76,9 +68,6 @@ public class Evaluator implements ASTVisitor<Double> {
                 heap.set(varName, newValue);
                 yield operation.isPrefix() ? newValue : value;
             }
-            case UNARY_PLUS -> value;
-            case UNARY_MINUS -> -value;
-            default -> throw new UnsupportedOperationException("Unsupported unary operator: " + operation.operator());
         };
     }
 

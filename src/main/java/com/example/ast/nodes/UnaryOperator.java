@@ -1,22 +1,19 @@
 package com.example.ast.nodes;
 
+import lombok.Getter;
+
 /**
  * Enum representing unary operators in the AST
  */
+@Getter
 public enum UnaryOperator {
     INCREMENT("++"),
-    DECREMENT("--"),
-    UNARY_PLUS("+"),
-    UNARY_MINUS("-");
+    DECREMENT("--");
 
     private final String symbol;
 
     UnaryOperator(String symbol) {
         this.symbol = symbol;
-    }
-
-    public String getSymbol() {
-        return symbol;
     }
 
     @Override

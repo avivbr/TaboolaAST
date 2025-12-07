@@ -18,11 +18,10 @@ public class Parser {
     );
 
     // Pattern to match additive operators (+, -) but not unary (++, --)
-    private static final Pattern ADD_PATTERN = Pattern.compile("(?<!\\+)\\+(?!\\+)");
-    private static final Pattern SUBTRACT_PATTERN = Pattern.compile("(?<!-)\\-(?!-)");
+    private static final Pattern ADDITIVE_PATTERN = Pattern.compile("(?<!\\+)\\+(?!\\+)|(?<!-)-(?!-)");
 
     // Pattern to match multiplicative operators (*, /, %)
-    private static final Pattern MULTIPLICATIVE_PATTERN = Pattern.compile("\\*|\\/|\\%");
+    private static final Pattern MULTIPLICATIVE_PATTERN = Pattern.compile("[*/%]");
 
     /**
      * Parse a string into an Assignment statement
@@ -37,12 +36,16 @@ public class Parser {
         String assignOp = matcher.group(2);
         String exprStr = matcher.group(3);
 
-        Variable variable = new Variable(varName);
+        Variable variable = Variable.builder().name(varName).build();
         AssignmentType type = parseAssignmentType(assignOp);
         Expression expression = parseExpression(exprStr)
                 .orElseThrow(() -> new IllegalArgumentException("Unable to parse expression: " + exprStr));
 
-        return new Assignment(variable, expression, type);
+        return Assignment.builder()
+                .variable(variable)
+                .value(expression)
+                .type(type)
+                .build();
     }
 
     /**
@@ -70,63 +73,64 @@ public class Parser {
                 .flatMap(this::parseExpressionInternal);
     }
 
-    private Optional<Expression> parseExpressionInternal(String expr) {
-        // Step 1: Try to break into binary operation with subtract operator (-)
-        Optional<BinaryOperation> subtract = tryBreakIntoBinaryOperation(expr, SUBTRACT_PATTERN);
-        if (subtract.isPresent()) {
-            return subtract.map(b -> (Expression) b);
+    private Optional<? extends Expression> parseExpressionInternal(String expr) {
+        // Step 1: Try to break into binary operation with additive operators (+, -)
+        Optional<BinaryOperation> additive = tryBreakIntoBinaryOperation(expr, ADDITIVE_PATTERN);
+        if (additive.isPresent()) {
+            return additive;
         }
 
-        // Step 2: Try to break into binary operation with add operator (+)
-        Optional<BinaryOperation> add = tryBreakIntoBinaryOperation(expr, ADD_PATTERN);
-        if (add.isPresent()) {
-            return add.map(b -> (Expression) b);
-        }
-
-        // Step 3: Try to break into binary operation with multiplicative operators (*, /, %)
+        // Step 2: Try to break into binary operation with multiplicative operators (*, /, %)
         Optional<BinaryOperation> multiplicative = tryBreakIntoBinaryOperation(expr, MULTIPLICATIVE_PATTERN);
         if (multiplicative.isPresent()) {
-            return multiplicative.map(b -> (Expression) b);
+            return multiplicative;
         }
 
-        // Step 4: Try to parse as atomic expression (literal, variable, or unary operation)
+        // Step 3: Try to parse as atomic expression (literal, variable, or unary operation)
         // If the expression is wrapped in parentheses, recursion will handle it
         return tryParseAtomicExpression(expr);
     }
 
     /**
      * Try to break the expression into a binary operation using the given pattern
-     * Uses regex to find the first operator outside parentheses
+     * For left-associativity, use the rightmost operator match outside parentheses
+     * (breaking at rightmost operator produces left-associative trees via recursion)
      */
     private Optional<BinaryOperation> tryBreakIntoBinaryOperation(String expr, Pattern operatorPattern) {
         // Replace parenthesized content with placeholders to ignore operators inside
         String maskedExpr = maskParentheses(expr);
 
-        // Find the first operator match outside parentheses
+        // Find all operator matches and use the rightmost one (for left-associativity)
         Matcher matcher = operatorPattern.matcher(maskedExpr);
+        int rightmostPos = -1;
+        String rightmostSymbol = null;
 
         while (matcher.find()) {
-            int operatorPos = matcher.start();
-            String operatorSymbol = matcher.group();
+            rightmostPos = matcher.start();
+            rightmostSymbol = matcher.group();
+        }
 
+        if (rightmostPos != -1) {
             // Find the matching BinaryOperator
-            BinaryOperator matchedOp = findOperatorBySymbol(operatorSymbol);
-            if (matchedOp == null) {
-                continue;
-            }
+            BinaryOperator matchedOp = findOperatorBySymbol(rightmostSymbol);
+            if (matchedOp != null) {
+                // Split the expression into three parts
+                String leftStr = expr.substring(0, rightmostPos).trim();
+                String rightStr = expr.substring(rightmostPos + rightmostSymbol.length()).trim();
 
-            // Split the expression into three parts
-            String leftStr = expr.substring(0, operatorPos).trim();
-            String rightStr = expr.substring(operatorPos + operatorSymbol.length()).trim();
+                // Ensure both sides are non-empty
+                if (!leftStr.isEmpty() && !rightStr.isEmpty()) {
+                    // Recursively parse left and right sides
+                    Optional<Expression> left = parseExpression(leftStr);
+                    Optional<Expression> right = parseExpression(rightStr);
 
-            // Ensure both sides are non-empty
-            if (!leftStr.isEmpty() && !rightStr.isEmpty()) {
-                // Recursively parse left and right sides
-                Optional<Expression> left = parseExpression(leftStr);
-                Optional<Expression> right = parseExpression(rightStr);
-
-                if (left.isPresent() && right.isPresent()) {
-                    return Optional.of(new BinaryOperation(left.get(), matchedOp, right.get()));
+                    if (left.isPresent() && right.isPresent()) {
+                        return Optional.of(BinaryOperation.builder()
+                                .left(left.get())
+                                .operator(matchedOp)
+                                .right(right.get())
+                                .build());
+                    }
                 }
             }
         }
@@ -175,7 +179,7 @@ public class Parser {
      * Try to parse as an atomic expression (literal, variable, or unary operation)
      * If wrapped in parentheses, strip them and recursively parse
      */
-    private Optional<Expression> tryParseAtomicExpression(String expr) {
+    private Optional<? extends Expression> tryParseAtomicExpression(String expr) {
         // If expression is wrapped in outer parentheses, strip them and recursively parse
         String stripped = Expression.stripOuterParentheses(expr);
         if (!stripped.equals(expr)) {
@@ -185,17 +189,17 @@ public class Parser {
         // Try unary operation first
         Optional<UnaryOperation> unary = tryParseUnary(expr);
         if (unary.isPresent()) {
-            return unary.map(u -> (Expression) u);
+            return unary;
         }
 
         // Try literal
         Optional<Literal> literal = tryParseLiteral(expr);
         if (literal.isPresent()) {
-            return literal.map(l -> (Expression) l);
+            return literal;
         }
 
         // Try variable
-        return tryParseVariable(expr).map(v -> (Expression) v);
+        return tryParseVariable(expr);
     }
 
     /**
@@ -208,7 +212,11 @@ public class Parser {
             String varStr = expr.substring(2).trim();
             return tryParseVariable(varStr).map(var -> {
                 UnaryOperator operator = op.equals("++") ? UnaryOperator.INCREMENT : UnaryOperator.DECREMENT;
-                return new UnaryOperation(operator, var, true);
+                return UnaryOperation.builder()
+                        .operator(operator)
+                        .operand(var)
+                        .isPrefix(true)
+                        .build();
             });
         }
 
@@ -218,7 +226,11 @@ public class Parser {
             String varStr = expr.substring(0, expr.length() - 2).trim();
             return tryParseVariable(varStr).map(var -> {
                 UnaryOperator operator = op.equals("++") ? UnaryOperator.INCREMENT : UnaryOperator.DECREMENT;
-                return new UnaryOperation(operator, var, false);
+                return UnaryOperation.builder()
+                        .operator(operator)
+                        .operand(var)
+                        .isPrefix(false)
+                        .build();
             });
         }
 
@@ -231,7 +243,7 @@ public class Parser {
     private Optional<Literal> tryParseLiteral(String expr) {
         try {
             double value = Double.parseDouble(expr);
-            return Optional.of(new Literal(value));
+            return Optional.of(Literal.builder().value(value).build());
         } catch (NumberFormatException e) {
             return Optional.empty();
         }
@@ -242,7 +254,7 @@ public class Parser {
      */
     private Optional<Variable> tryParseVariable(String expr) {
         if (expr.matches("[a-zA-Z_$][a-zA-Z0-9_$]*")) {
-            return Optional.of(new Variable(expr));
+            return Optional.of(Variable.builder().name(expr).build());
         }
         return Optional.empty();
     }

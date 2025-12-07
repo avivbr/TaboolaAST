@@ -1,6 +1,6 @@
 package com.example.ast;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -12,7 +12,7 @@ public class Heap {
     private final Map<String, Double> variables;
 
     public Heap() {
-        this.variables = new HashMap<>();
+        this.variables = new LinkedHashMap<>();
     }
 
     /**
@@ -29,24 +29,24 @@ public class Heap {
         return Optional.ofNullable(variables.get(name));
     }
 
-    /**
-     * Check if a variable is defined
-     */
-    public boolean has(String name) {
-        return variables.containsKey(name);
-    }
+    @Override
+    public String toString() {
+        if (variables.isEmpty()) {
+            return "()";
+        }
 
-    /**
-     * Clear all variables
-     */
-    public void clear() {
-        variables.clear();
-    }
+        String content = String.join(",",
+                variables.entrySet().stream()
+                        .map(entry -> {
+                            double value = entry.getValue();
+                            // Format the value - if it's a whole number, print without decimal
+                            return String.format("%s=%s", entry.getKey(),
+                                    (value == (long) value)
+                                            ? Long.toString((long) value)
+                                            : Double.toString(value));
+                        })
+                        .toList());
 
-    /**
-     * Get a copy of all variables (for debugging/inspection)
-     */
-    public Map<String, Double> getAll() {
-        return new HashMap<>(variables);
+        return String.format("(%s)", content);
     }
 }
