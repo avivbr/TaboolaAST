@@ -16,6 +16,6 @@ public record Assignment(Variable variable, Expression value, AssignmentType typ
 
     @Override
     public String toString() {
-        return variable + " " + type + " " + value;
+        return String.format("%s %s %s", variable, type, value);
     }
 }

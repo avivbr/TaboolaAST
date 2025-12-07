@@ -20,6 +20,6 @@ public record UnaryOperation(
 
     @Override
     public String toString() {
-        return isPrefix ? operator + operand.toString() : operand.toString() + operator;
+        return isPrefix ? String.format("%s%s", operator, operand) : String.format("%s%s", operand, operator);
     }
 }

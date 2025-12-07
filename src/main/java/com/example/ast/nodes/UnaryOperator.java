@@ -18,6 +18,6 @@ public enum UnaryOperator {
 
     @Override
     public String toString() {
-        return symbol;
+        return String.format("%s", symbol);
     }
 }

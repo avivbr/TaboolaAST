@@ -16,6 +16,6 @@ public record Variable(String name) implements Expression {
 
     @Override
     public String toString() {
-        return name;
+        return String.format("%s", name);
     }
 }

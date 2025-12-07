@@ -16,6 +16,6 @@ public record Literal(double value) implements Expression {
 
     @Override
     public String toString() {
-        return String.valueOf(value);
+        return String.format("%s", value);
     }
 }

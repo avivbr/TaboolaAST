@@ -1,8 +1,11 @@
 package com.example.ast.nodes;
 
+import lombok.Getter;
+
 /**
  * Enum representing different assignment operators
  */
+@Getter
 public enum AssignmentType {
     ASSIGN("="),
     ADD_ASSIGN("+="),
@@ -16,12 +19,8 @@ public enum AssignmentType {
         this.symbol = symbol;
     }
 
-    public String getSymbol() {
-        return symbol;
-    }
-
     @Override
     public String toString() {
-        return symbol;
+        return String.format("%s", symbol);
     }
 }

@@ -19,6 +19,6 @@ public record BinaryOperation(
 
     @Override
     public String toString() {
-        return "(" + left + " " + operator + " " + right + ")";
+        return String.format("(%s %s %s)", left, operator, right);
     }
 }
